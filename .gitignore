@@ -1,0 +1,6 @@
+# binary
+httpmonitor
+
+# test data
+*.log
+*.bak*
