@@ -8,6 +8,7 @@ import (
 
 type ProcessedLine struct {
 	Method       string
+	Path         string
 	Section      string
 	Protocol     string
 	ResponseCode int
@@ -41,9 +42,16 @@ func LineProcessor(l string) (out ProcessedLine, err error) {
 		return
 	}
 
+	section := queryParts[1]
+	sectionEnd := strings.Index(section[1:], "/")
+	if sectionEnd != -1 {
+		section = section[:sectionEnd+1]
+	}
+
 	out = ProcessedLine{
 		Method:       queryParts[0][1:], // remove " at the start
-		Section:      queryParts[1],
+		Path:         queryParts[1],
+		Section:      section,
 		Protocol:     queryParts[2][:len(queryParts[2])-1], // remove " at the end
 		ResponseCode: respCode,
 		IP:           ip,
