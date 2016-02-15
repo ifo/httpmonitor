@@ -25,34 +25,38 @@ func ProcessLogLine(l string, out chan<- ProcessedLine) error {
 	}
 }
 
-// LineProcessor assumes a common log format:
+// LineProcessor assumes a common log format, and that
+// rfc931 and authuser don't contain the string `] "`
+//
+// Common Log Format:
 // https://www.w3.org/Daemon/User/Config/Logging.html#common-logfile-format
+//
+// Common Log Format looks like:
+// remotehost rfc931 authuser [date] "request" status bytes
+// where "request" is: "METHOD /path PROTOCOL"
 func LineProcessor(l string) (out ProcessedLine, err error) {
-	//dateStart := strings.Index(l, "[")
-	dateEnd := strings.Index(l, "]")
-
-	//date := l[dateStart+1 : dateEnd]
 	ipEnd := strings.Index(l, " ")
 	ip := l[:ipEnd]
 
-	queryParts := strings.Fields(l[dateEnd+2:])
+	requestBegin := strings.Index(l, `] "`) + 3 // skip to start with METHOD
+	requestParts := strings.Fields(l[requestBegin:])
 
-	respCode, err := strconv.Atoi(queryParts[3])
+	respCode, err := strconv.Atoi(requestParts[3])
 	if err != nil {
 		return
 	}
 
-	section := queryParts[1]
+	section := requestParts[1]
 	sectionEnd := strings.Index(section[1:], "/")
 	if sectionEnd != -1 {
 		section = section[:sectionEnd+1]
 	}
 
 	out = ProcessedLine{
-		Method:       queryParts[0][1:], // remove " at the start
-		Path:         queryParts[1],
+		Method:       requestParts[0],
+		Path:         requestParts[1],
 		Section:      section,
-		Protocol:     queryParts[2][:len(queryParts[2])-1], // remove " at the end
+		Protocol:     requestParts[2][:len(requestParts[2])-1], // remove trailing "
 		ResponseCode: respCode,
 		IP:           ip,
 		Time:         time.Now().UTC(),
