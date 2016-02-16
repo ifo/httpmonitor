@@ -6,12 +6,18 @@ import (
 	"github.com/hpcloud/tail"
 )
 
+// TODO cleanup const usage
+const (
+	numProcessors = 200
+)
+
 func main() {
 	cfg, err := GetConfig()
 	if err != nil {
 		log.Fatalln(err)
 	}
 
+	// tail file
 	t, err := tail.TailFile(cfg.File, tail.Config{
 		//Location: &tail.SeekInfo{Offset: 0, Whence: 2}, // start at end of file
 		ReOpen: true,
@@ -22,11 +28,15 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	ch := make(chan ProcessedLine)
+	// create state input channel
+	input := StateManager(printInterval)
 
-	go DataManager(ch)
-
-	for line := range t.Lines {
-		go ProcessLogLine(line.Text, ch)
+	// kickoff line process workers
+	for i := 0; i < numProcessors; i++ {
+		go LineProcessWorker(t.Lines, input)
 	}
+
+	// wait forever
+	done := make(chan struct{}, 1)
+	<-done
 }

@@ -2,54 +2,58 @@ package main
 
 import (
 	"fmt"
-	"sync/atomic"
 	"time"
 )
 
+// TODO cleanup const usage
 const (
 	printInterval                = 10 * time.Second // how often to print results
 	recentHistoryInterval        = 2 * time.Minute  // the length of recent history
 	recentHistoryIntervalSeconds = uint64(recentHistoryInterval / time.Second)
 )
 
-func DataManager(in chan ProcessedLine) {
-	// setup
-	reqInfo := map[string]int{}
+func StateManager(printInterval time.Duration) chan<- ProcessedLine {
+	input := make(chan ProcessedLine)
+	state := map[string]uint64{}
 	var (
-		totalHits     uint64 = 0
-		twoMinuteHits uint64 = 0
+		totalHits  uint64 = 0
+		twoMinHits []time.Time
 	)
 
-	// recur
-	timer := make(chan struct{}, 1)
-	go TenSecondTimer(timer)
+	ticker := time.NewTicker(printInterval)
 	start := time.Now()
-	for {
-		select {
-		case <-timer:
-			fmt.Println(reqInfo)
-			fmt.Println("avg hits/sec: ",
-				totalHits/uint64(time.Since(start).Seconds()))
-			fmt.Println("two-minute avg hits/sec: ",
-				atomic.LoadUint64(&twoMinuteHits)/recentHistoryIntervalSeconds)
-			fmt.Println("total hits: ", totalHits)
-		case l := <-in:
-			totalHits += 1
-			atomic.AddUint64(&twoMinuteHits, 1)
-			go DecrementAfterInterval(&twoMinuteHits)
-			reqInfo[l.Section] += 1
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				state["total"] = totalHits
+				twoMinHits = RemoveOld(twoMinHits)
+				state["recent"] = uint64(len(twoMinHits))
+				LogState(state, start)
+			case l := <-input:
+				totalHits += 1
+				twoMinHits = append(twoMinHits, l.Time)
+				state[l.Section] += 1
+			}
+		}
+	}()
+	return input
+}
+
+func LogState(s map[string]uint64, start time.Time) {
+	fmt.Println(s)
+	fmt.Println("avg hits/sec: ", s["total"]/uint64(time.Since(start).Seconds()))
+	fmt.Println("two-minute avg hits/sec: ", s["recent"]/recentHistoryIntervalSeconds)
+	fmt.Println("total hits: ", s["total"])
+}
+
+func RemoveOld(ts []time.Time) []time.Time {
+	n := time.Now().Add(-recentHistoryInterval)
+	i := 0
+	for ; i < len(ts); i++ {
+		if ts[i].After(n) {
+			break
 		}
 	}
-}
-
-func TenSecondTimer(timer chan<- struct{}) {
-	for {
-		time.Sleep(printInterval)
-		timer <- struct{}{}
-	}
-}
-
-func DecrementAfterInterval(v *uint64) {
-	time.Sleep(recentHistoryInterval)
-	atomic.AddUint64(v, ^uint64(0)) // subtracts 1
+	return ts[i:]
 }

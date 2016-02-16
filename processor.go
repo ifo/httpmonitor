@@ -4,6 +4,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/hpcloud/tail"
 )
 
 type ProcessedLine struct {
@@ -16,15 +18,6 @@ type ProcessedLine struct {
 	Time         time.Time
 }
 
-func ProcessLogLine(l string, out chan<- ProcessedLine) error {
-	if line, err := LineProcessor(l); err != nil {
-		return err
-	} else {
-		out <- line
-		return nil
-	}
-}
-
 // LineProcessor assumes a common log format, and that
 // rfc931 and authuser don't contain the string `] "`
 //
@@ -34,12 +27,12 @@ func ProcessLogLine(l string, out chan<- ProcessedLine) error {
 // Common Log Format looks like:
 // remotehost rfc931 authuser [date] "request" status bytes
 // where "request" is: "METHOD /path PROTOCOL"
-func LineProcessor(l string) (out ProcessedLine, err error) {
-	ipEnd := strings.Index(l, " ")
-	ip := l[:ipEnd]
+func LineProcessor(line string) (out ProcessedLine, err error) {
+	ipEnd := strings.Index(line, " ")
+	ip := line[:ipEnd]
 
-	requestBegin := strings.Index(l, `] "`) + 3 // skip to start with METHOD
-	requestParts := strings.Fields(l[requestBegin:])
+	requestBegin := strings.Index(line, `] "`) + 3 // skip to start with METHOD
+	requestParts := strings.Fields(line[requestBegin:])
 
 	respCode, err := strconv.Atoi(requestParts[3])
 	if err != nil {
@@ -59,7 +52,16 @@ func LineProcessor(l string) (out ProcessedLine, err error) {
 		Protocol:     requestParts[2][:len(requestParts[2])-1], // remove trailing "
 		ResponseCode: respCode,
 		IP:           ip,
-		Time:         time.Now().UTC(),
+		Time:         time.Now(),
 	}
 	return
+}
+
+func LineProcessWorker(in <-chan *tail.Line, stats chan<- ProcessedLine) {
+	for l := range in {
+		line, err := LineProcessor(l.Text)
+		if err == nil {
+			stats <- line
+		}
+	}
 }
