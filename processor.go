@@ -4,8 +4,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/hpcloud/tail"
 )
 
 type ProcessedLine struct {
@@ -55,13 +53,4 @@ func LineProcessor(line string) (out ProcessedLine, err error) {
 		Time:         time.Now(),
 	}
 	return
-}
-
-func LineProcessWorker(in <-chan *tail.Line, stats chan<- ProcessedLine) {
-	for l := range in {
-		line, err := LineProcessor(l.Text)
-		if err == nil {
-			stats <- line
-		}
-	}
 }
