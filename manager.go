@@ -71,6 +71,7 @@ func (hs HitState) Print() {
 		} else {
 			hs.TopAlert.PrintRecovery()
 		}
+		fmt.Println("")
 	}
 
 	// Print Past Alerts
@@ -80,18 +81,21 @@ func (hs HitState) Print() {
 			a.Print()
 		}
 		fmt.Println("|=== end of alerts ===|")
+		fmt.Println("")
 	}
 
 	// Print Stats
 	// TODO improve print stats
 	fmt.Println(hs.HitMap)
+	fmt.Println("")
 
 	// Print Interesting Facts
 	// TODO improve interesting facts
 	fmt.Println("=== Did you know? ===")
-	fmt.Println("total hits: ", hs.TotalHits)
-	fmt.Println("avg hits/sec: ", hs.TotalHits/uint64(time.Since(hs.StartTime).Seconds()))
-	fmt.Println("recent hits/sec: ", hs.RecentHits/hs.RecentDurationSeconds)
+	fmt.Println("=== total hits: ", hs.TotalHits)
+	fmt.Println("=== avg hits/sec: ", hs.TotalHits/uint64(time.Since(hs.StartTime).Seconds()))
+	fmt.Println("=== recent hits/sec: ", hs.RecentHits/hs.RecentDurationSeconds)
+	fmt.Println("")
 }
 
 func (hs HitState) CheckForAlert(alertPercentage float64) (alert Alert) {

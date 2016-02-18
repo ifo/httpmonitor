@@ -34,10 +34,10 @@ func (a Alert) Print() {
 	}
 	if a.IsCurrent() {
 		fmt.Println("!!!=== WARNING: Alert is in progress ===!!!")
-		fmt.Println(a.AlertMessage())
+		fmt.Println("!!!=== ", a.AlertMessage())
 		fmt.Println("!!!=========== current alert ===========!!!")
 	} else {
-		fmt.Println(a.AlertMessage())
+		fmt.Println("|=== ", a.AlertMessage())
 	}
 }
 
@@ -46,7 +46,7 @@ func (a Alert) PrintRecovery() {
 		return
 	}
 	fmt.Println("!!!=== Alert recovered ===!!!")
-	fmt.Println(a.AlertMessage())
+	fmt.Println("!!!=== ", a.AlertMessage())
 	fmt.Println("!!!=== alert has ended ===!!!")
 }
 
@@ -62,7 +62,7 @@ func (a Alert) AlertMessage() string {
 		)
 	}
 	return fmt.Sprintf(
-		"Alert triggered at %s with hits/sec = (%.f), recovered at %s",
+		"Recovered: Alert at %s with hits/sec = (%.f), recovered at %s",
 		a.Start.Format(time.UnixDate),
 		a.HitsPerSec,
 		a.End.Format(time.UnixDate),
