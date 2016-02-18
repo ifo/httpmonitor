@@ -17,10 +17,10 @@ func (a Alert) Print() {
 	}
 	if a.IsCurrent() {
 		fmt.Println("!!!=== WARNING: Alert is in progress ===!!!")
-		a.Print()
+		fmt.Println(a.AlertMessage())
 		fmt.Println("!!!=========== current alert ===========!!!")
 	} else {
-		a.Print()
+		fmt.Println(a.AlertMessage())
 	}
 }
 
@@ -29,7 +29,7 @@ func (a Alert) PrintRecovery() {
 		return
 	}
 	fmt.Println("!!!=== Alert recovered ===!!!")
-	a.Print()
+	fmt.Println(a.AlertMessage())
 	fmt.Println("!!!=== alert has ended ===!!!")
 }
 
