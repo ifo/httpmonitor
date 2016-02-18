@@ -10,7 +10,7 @@ func StateManager(cfg Config) chan<- ProcessedLine {
 	state := map[string]uint64{}
 	var (
 		totalHits  uint64 = 0
-		twoMinHits []TimeGroup
+		recentHits []TimeGroup
 	)
 
 	ticker := time.NewTicker(cfg.PrintInterval)
@@ -20,12 +20,12 @@ func StateManager(cfg Config) chan<- ProcessedLine {
 			select {
 			case <-ticker.C:
 				state["total"] = totalHits
-				twoMinHits = RemoveOldTimeGroups(twoMinHits, cfg.RecentHistoryInterval)
-				state["recent"] = SumTimeGroup(twoMinHits)
+				recentHits = RemoveOldTimeGroups(recentHits, cfg.RecentHistoryInterval)
+				state["recent"] = SumTimeGroup(recentHits)
 				LogState(state, start, uint64(cfg.RecentHistoryInterval/time.Second))
 			case l := <-input:
 				totalHits += 1
-				twoMinHits = GroupByResolution(twoMinHits, l.Time,
+				recentHits = GroupByResolution(recentHits, l.Time,
 					cfg.GroupingResolution)
 				state[l.Section] += 1
 			}
