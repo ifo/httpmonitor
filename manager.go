@@ -1,45 +1,90 @@
 package main
 
 import (
-	"fmt"
 	"time"
 )
 
 func StateManager(cfg Config) chan<- ProcessedLine {
 	input := make(chan ProcessedLine)
-	state := map[string]uint64{}
-	var (
-		totalHits  uint64 = 0
-		recentHits []TimeGroup
-	)
+	hs := HitState{
+		HitMap:                map[string]uint64{},
+		TotalHits:             0,
+		RecentHits:            0,
+		PastAlerts:            []Alert{},
+		TopAlert:              Alert{},
+		StartTime:             time.Now(),
+		RecentDurationSeconds: uint64(cfg.RecentHistoryInterval / time.Second),
+	}
+	hitsGroup := []TimeGroup{}
 
 	ticker := time.NewTicker(cfg.PrintInterval)
-	start := time.Now()
 	go func() {
 		for {
 			select {
 			case <-ticker.C:
-				state["total"] = totalHits
-				recentHits = RemoveOldTimeGroups(recentHits, cfg.RecentHistoryInterval)
-				state["recent"] = SumTimeGroup(recentHits)
-				LogState(state, start, uint64(cfg.RecentHistoryInterval/time.Second))
+				hitsGroup = RemoveOldTimeGroups(hitsGroup, cfg.RecentHistoryInterval)
+				hs.RecentHits = SumTimeGroup(hitsGroup)
+				hs.Print()
 			case l := <-input:
-				totalHits += 1
-				recentHits = GroupByResolution(recentHits, l.Time,
+				hs.TotalHits += 1
+				hs.HitMap[l.Section] += 1
+				hitsGroup = GroupByResolution(hitsGroup, l.Time,
 					cfg.GroupingResolution)
-				state[l.Section] += 1
 			}
 		}
 	}()
 	return input
 }
 
-func LogState(s map[string]uint64, start time.Time, intervalSeconds uint64) {
-	fmt.Println(s)
-	fmt.Println("avg hits/sec: ", s["total"]/uint64(time.Since(start).Seconds()))
-	fmt.Println("recent-history avg hits/sec: ",
-		s["recent"]/intervalSeconds)
-	fmt.Println("total hits: ", s["total"])
+// HitState contains all af the relevant logging data
+type HitState struct {
+	HitMap                map[string]uint64
+	TotalHits             uint64
+	RecentHits            uint64
+	PastAlerts            []Alert
+	TopAlert              Alert
+	StartTime             time.Time
+	RecentDurationSeconds uint64
+}
+
+func (hs HitState) Print() {
+	// Print Current Alert
+	if !hs.TopAlert.IsEmpty() {
+		if hs.TopAlert.IsCurrent() {
+			hs.TopAlert.Print()
+		} else {
+			hs.TopAlert.PrintRecovery()
+		}
+	}
+
+	// Print Past Alerts
+	if len(hs.PastAlerts) > 0 {
+		fmt.Println("|==== Past alerts ====|")
+		for _, a := range hs.PastAlerts {
+			a.Print()
+		}
+		fmt.Println("|=== end of alerts ===|")
+	}
+
+	// Print Stats
+	// TODO improve print stats
+	fmt.Println(hs.HitMap)
+
+	// Print Interesting Facts
+	// TODO improve interesting facts
+	fmt.Println("=== Did you know? ===")
+	fmt.Println("avg hits/sec: ", hs.TotalHits/uint64(time.Since(hs.StartTime).Seconds()))
+	fmt.Println("recent hits/sec: ", hs.RecentHits/hs.RecentDurationSeconds)
+}
+
+func (hs HitState) AlertCheck(alertPercentage float64) (alert Alert) {
+	tot64, rec64 := float64(hs.TotalHits), float64(hs.RecentHits)
+	boundary := tot64 + tot64*alertPercentage
+	if rec64 > boundary {
+		alert.Start = time.Now()
+		alert.HitsPerSec = rec64 / float64(hs.RecentDurationSeconds)
+	}
+	return
 }
 
 // A TimeGroup keeps track of the number of hits that have occured within a
