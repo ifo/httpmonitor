@@ -5,14 +5,7 @@ import (
 	"time"
 )
 
-// TODO cleanup const usage
-const (
-	printInterval                = 10 * time.Second // how often to print results
-	recentHistoryInterval        = 2 * time.Minute  // the length of recent history
-	recentHistoryIntervalSeconds = uint64(recentHistoryInterval / time.Second)
-)
-
-func StateManager(printInterval time.Duration) chan<- ProcessedLine {
+func StateManager(cfg Config) chan<- ProcessedLine {
 	input := make(chan ProcessedLine)
 	state := map[string]uint64{}
 	var (
@@ -20,19 +13,20 @@ func StateManager(printInterval time.Duration) chan<- ProcessedLine {
 		twoMinHits []TimeGroup
 	)
 
-	ticker := time.NewTicker(printInterval)
+	ticker := time.NewTicker(cfg.PrintInterval)
 	start := time.Now()
 	go func() {
 		for {
 			select {
 			case <-ticker.C:
 				state["total"] = totalHits
-				twoMinHits = RemoveOldTimeGroups(twoMinHits)
+				twoMinHits = RemoveOldTimeGroups(twoMinHits, cfg.RecentHistoryInterval)
 				state["recent"] = SumTimeGroup(twoMinHits)
-				LogState(state, start)
+				LogState(state, start, uint64(cfg.RecentHistoryInterval/time.Second))
 			case l := <-input:
 				totalHits += 1
-				twoMinHits = GroupBySecond(twoMinHits, l.Time)
+				twoMinHits = GroupByResolution(twoMinHits, l.Time,
+					cfg.GroupingResolution)
 				state[l.Section] += 1
 			}
 		}
@@ -40,24 +34,26 @@ func StateManager(printInterval time.Duration) chan<- ProcessedLine {
 	return input
 }
 
-func LogState(s map[string]uint64, start time.Time) {
+func LogState(s map[string]uint64, start time.Time, intervalSeconds uint64) {
 	fmt.Println(s)
 	fmt.Println("avg hits/sec: ", s["total"]/uint64(time.Since(start).Seconds()))
-	fmt.Println("two-minute avg hits/sec: ", s["recent"]/recentHistoryIntervalSeconds)
+	fmt.Println("recent-history avg hits/sec: ",
+		s["recent"]/intervalSeconds)
 	fmt.Println("total hits: ", s["total"])
 }
 
 // A TimeGroup keeps track of the number of hits that have occured within a
-// particular time range. In this case, 1 second. This was added to
-// greatly reduce memory requirements during large traffic spikes.
+// particular time range. In this case, Config.GroupingResolution. This was
+// added to greatly reduce memory requirements during large traffic spikes.
 type TimeGroup struct {
 	Time  time.Time
 	Count uint64
 }
 
-func GroupBySecond(ts []TimeGroup, t time.Time) []TimeGroup {
+func GroupByResolution(ts []TimeGroup, t time.Time,
+	resolution time.Duration) []TimeGroup {
 	l := len(ts)
-	if l > 0 && t.Sub(ts[l-1].Time) <= time.Second {
+	if l > 0 && t.Sub(ts[l-1].Time) <= resolution {
 		ts[l-1].Count += 1
 		return ts
 	} else {
@@ -65,8 +61,8 @@ func GroupBySecond(ts []TimeGroup, t time.Time) []TimeGroup {
 	}
 }
 
-func RemoveOldTimeGroups(ts []TimeGroup) []TimeGroup {
-	n := time.Now().Add(-recentHistoryInterval)
+func RemoveOldTimeGroups(ts []TimeGroup, interval time.Duration) []TimeGroup {
+	n := time.Now().Add(-interval)
 	i := 0
 	for ; i < len(ts); i++ {
 		if ts[i].Time.After(n) {

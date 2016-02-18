@@ -6,11 +6,6 @@ import (
 	"github.com/hpcloud/tail"
 )
 
-// TODO cleanup const usage
-const (
-	numProcessors = 200
-)
-
 func main() {
 	cfg, err := GetConfig()
 	if err != nil {
@@ -29,10 +24,10 @@ func main() {
 	}
 
 	// create state input channel
-	input := StateManager(printInterval)
+	input := StateManager(cfg)
 
 	// kickoff line process workers
-	for i := 0; i < numProcessors; i++ {
+	for i := 0; i < cfg.WorkerCount; i++ {
 		go LineProcessWorker(t.Lines, input)
 	}
 
