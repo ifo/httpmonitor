@@ -11,6 +11,23 @@ type Alert struct {
 	End        time.Time
 }
 
+// Empty alerts have not yet started
+func (a Alert) IsEmpty() bool {
+	return a.Start.IsZero()
+}
+
+// Current Alerts have not yet ended
+func (a Alert) IsCurrent() bool {
+	return !a.Start.IsZero() && a.End.IsZero()
+}
+
+func (a Alert) MaxHitsPerSec(hps float64) float64 {
+	if a.HitsPerSec < hps {
+		return hps
+	}
+	return a.HitsPerSec
+}
+
 func (a Alert) Print() {
 	if a.IsEmpty() {
 		return
@@ -31,16 +48,6 @@ func (a Alert) PrintRecovery() {
 	fmt.Println("!!!=== Alert recovered ===!!!")
 	fmt.Println(a.AlertMessage())
 	fmt.Println("!!!=== alert has ended ===!!!")
-}
-
-// Empty alerts have not yet started
-func (a Alert) IsEmpty() bool {
-	return a.Start.IsZero()
-}
-
-// Current Alerts have not yet ended
-func (a Alert) IsCurrent() bool {
-	return !a.Start.IsZero() && a.End.IsZero()
 }
 
 func (a Alert) AlertMessage() string {
