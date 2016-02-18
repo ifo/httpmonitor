@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -24,7 +25,22 @@ func StateManager(cfg Config) chan<- ProcessedLine {
 			case <-ticker.C:
 				hitsGroup = RemoveOldTimeGroups(hitsGroup, cfg.RecentHistoryInterval)
 				hs.RecentHits = SumTimeGroup(hitsGroup)
+				// Check for alert if there is no current one
+				if hs.TopAlert.IsCurrent() {
+					// update hits per sec
+					hs.TopAlert.HitsPerSec = hs.TopAlert.MaxHitsPerSec(
+						float64(hs.RecentHits) / float64(hs.RecentDurationSeconds))
+					// check for recovery
+					hs.TopAlert = hs.CheckForAlertRecovery(cfg.AlertPercentage)
+				} else {
+					hs.TopAlert = hs.CheckForAlert(cfg.AlertPercentage)
+				}
 				hs.Print()
+				// Reset alert if recovered
+				if !hs.TopAlert.IsEmpty() && !hs.TopAlert.IsCurrent() {
+					hs.PastAlerts = append(hs.PastAlerts, hs.TopAlert)
+					hs.TopAlert = Alert{}
+				}
 			case l := <-input:
 				hs.TotalHits += 1
 				hs.HitMap[l.Section] += 1
@@ -73,16 +89,30 @@ func (hs HitState) Print() {
 	// Print Interesting Facts
 	// TODO improve interesting facts
 	fmt.Println("=== Did you know? ===")
+	fmt.Println("total hits: ", hs.TotalHits)
 	fmt.Println("avg hits/sec: ", hs.TotalHits/uint64(time.Since(hs.StartTime).Seconds()))
 	fmt.Println("recent hits/sec: ", hs.RecentHits/hs.RecentDurationSeconds)
 }
 
-func (hs HitState) AlertCheck(alertPercentage float64) (alert Alert) {
-	tot64, rec64 := float64(hs.TotalHits), float64(hs.RecentHits)
+func (hs HitState) CheckForAlert(alertPercentage float64) (alert Alert) {
+	tot64 := float64(hs.TotalHits) / float64(time.Since(hs.StartTime).Seconds())
+	rec64 := float64(hs.RecentHits) / float64(hs.RecentDurationSeconds)
 	boundary := tot64 + tot64*alertPercentage
 	if rec64 > boundary {
 		alert.Start = time.Now()
-		alert.HitsPerSec = rec64 / float64(hs.RecentDurationSeconds)
+		alert.HitsPerSec = alert.MaxHitsPerSec(rec64)
+	}
+	return
+}
+
+func (hs HitState) CheckForAlertRecovery(alertPercentage float64) (alert Alert) {
+	alert = hs.TopAlert
+	tot64 := float64(hs.TotalHits) / float64(time.Since(hs.StartTime).Seconds())
+	rec64 := float64(hs.RecentHits) / float64(hs.RecentDurationSeconds)
+	boundary := tot64 + tot64*alertPercentage
+	if rec64 < boundary {
+		alert.End = time.Now()
+		alert.HitsPerSec = alert.MaxHitsPerSec(rec64)
 	}
 	return
 }
