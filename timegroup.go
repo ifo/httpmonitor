@@ -9,7 +9,7 @@ import (
 // added to greatly reduce memory requirements during large traffic spikes.
 type TimeGroup struct {
 	Time  time.Time
-	Count uint64
+	Count float64
 }
 
 func GroupByResolution(ts []TimeGroup, t time.Time,
@@ -37,7 +37,7 @@ func RemoveOldTimeGroups(ts []TimeGroup, interval time.Duration) []TimeGroup {
 // SumTimeGroup is assignable for testing
 var SumTimeGroup = sumTimeGroup
 
-func sumTimeGroup(ts []TimeGroup) (sum uint64) {
+func sumTimeGroup(ts []TimeGroup) (sum float64) {
 	for _, t := range ts {
 		sum += t.Count
 	}

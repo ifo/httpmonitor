@@ -8,13 +8,13 @@ import (
 func StateManager(cfg Config) chan<- ProcessedLine {
 	input := make(chan ProcessedLine)
 	hs := HitState{
-		HitMap:                map[string]uint64{},
+		HitMap:                map[string]int{},
 		TotalHits:             0,
 		RecentHits:            0,
 		PastAlerts:            []Alert{},
 		TopAlert:              Alert{},
 		StartTime:             time.Now(),
-		RecentDurationSeconds: uint64(cfg.RecentHistoryInterval / time.Second),
+		RecentDurationSeconds: float64(cfg.RecentHistoryInterval / time.Second),
 		AlertPercentage:       cfg.AlertPercentage,
 	}
 	hitsGroup := []TimeGroup{}
@@ -48,13 +48,13 @@ var Done = func() {}
 
 // HitState contains all af the relevant logging data
 type HitState struct {
-	HitMap                map[string]uint64
-	TotalHits             uint64
-	RecentHits            uint64
+	HitMap                map[string]int
+	TotalHits             float64
+	RecentHits            float64
 	PastAlerts            []Alert
 	TopAlert              Alert
 	StartTime             time.Time
-	RecentDurationSeconds uint64
+	RecentDurationSeconds float64
 	AlertPercentage       float64
 }
 
@@ -62,7 +62,7 @@ type HitState struct {
 // Empty Alert     -> Check for Alert (if so, move to Active Alert)
 // Active Alert    -> Check for end of Alert (if so, move to Recovered Alert)
 // Recovered Alert -> Save Alert in PastAlerts, move to Empty Alert
-func (hs HitState) Update(recentHits uint64) HitState {
+func (hs HitState) Update(recentHits float64) HitState {
 	hs.RecentHits = recentHits
 	switch {
 	// Empty Alert
@@ -71,7 +71,7 @@ func (hs HitState) Update(recentHits uint64) HitState {
 	// Active Alert
 	case hs.TopAlert.IsCurrent():
 		hs.TopAlert.HitsPerSec = hs.TopAlert.MaxHitsPerSec(
-			float64(hs.RecentHits) / float64(hs.RecentDurationSeconds))
+			hs.RecentHits / hs.RecentDurationSeconds)
 		hs.TopAlert = hs.CheckForAlertRecovery()
 	// Recovered Alert
 	case !hs.TopAlert.IsEmpty() && !hs.TopAlert.IsCurrent():
@@ -110,15 +110,15 @@ func (hs HitState) Print() {
 	// Print Interesting Facts
 	// TODO improve interesting facts
 	fmt.Println("=== Did you know? ===")
-	fmt.Println("=== total hits: ", hs.TotalHits)
-	fmt.Println("=== avg hits/sec: ", hs.TotalHits/uint64(time.Since(hs.StartTime).Seconds()))
-	fmt.Println("=== recent hits/sec: ", hs.RecentHits/hs.RecentDurationSeconds)
+	fmt.Printf("=== total hits: %.f\n", hs.TotalHits)
+	fmt.Printf("=== avg hits/sec: %.f\n", hs.TotalHits/timeSince(hs.StartTime))
+	fmt.Printf("=== recent hits/sec: %.f\n", hs.RecentHits/hs.RecentDurationSeconds)
 	fmt.Println("")
 }
 
 func (hs HitState) CheckForAlert() (alert Alert) {
-	tot64 := float64(hs.TotalHits) / float64(time.Since(hs.StartTime).Seconds())
-	rec64 := float64(hs.RecentHits) / float64(hs.RecentDurationSeconds)
+	tot64 := hs.TotalHits / timeSince(hs.StartTime)
+	rec64 := hs.RecentHits / hs.RecentDurationSeconds
 	boundary := tot64 + tot64*hs.AlertPercentage
 	if rec64 > boundary {
 		alert.Start = time.Now()
@@ -129,12 +129,16 @@ func (hs HitState) CheckForAlert() (alert Alert) {
 
 func (hs HitState) CheckForAlertRecovery() (alert Alert) {
 	alert = hs.TopAlert
-	tot64 := float64(hs.TotalHits) / float64(time.Since(hs.StartTime).Seconds())
-	rec64 := float64(hs.RecentHits) / float64(hs.RecentDurationSeconds)
+	tot64 := hs.TotalHits / timeSince(hs.StartTime)
+	rec64 := hs.RecentHits / hs.RecentDurationSeconds
 	boundary := tot64 + tot64*hs.AlertPercentage
 	if rec64 < boundary {
 		alert.End = time.Now()
 		alert.HitsPerSec = alert.MaxHitsPerSec(rec64)
 	}
 	return
+}
+
+func timeSince(t time.Time) float64 {
+	return float64(time.Since(t).Seconds())
 }

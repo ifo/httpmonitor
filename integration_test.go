@@ -24,8 +24,8 @@ func Test_Alerting(t *testing.T) {
 
 	// setup test states and stateReader
 	testState := 0
-	recentHits := []uint64{10, 100, 10}
-	totalHits := []uint64{10, 110, 120}
+	recentHits := []float64{10, 100, 10}
+	totalHits := []float64{10, 110, 120}
 	currentHitState := &HitState{}
 
 	changeStateChan := make(chan bool, 1)
@@ -42,7 +42,7 @@ func Test_Alerting(t *testing.T) {
 		hs.AlertPercentage = cfg.AlertPercentage          // set alert percent
 		changeStateChan <- true
 	}
-	SumTimeGroup = func(ts []TimeGroup) (out uint64) {
+	SumTimeGroup = func(ts []TimeGroup) (out float64) {
 		out = recentHits[testState]
 		sumTimeChan <- true
 		return
