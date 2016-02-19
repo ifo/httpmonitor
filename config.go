@@ -14,7 +14,7 @@ type Config struct {
 	RecentHistoryInterval time.Duration
 	GroupingResolution    time.Duration
 	Log                   bool
-	Test                  chan struct{}
+	TestChannel           chan struct{}
 }
 
 func GetConfig() (cfg Config, err error) {
@@ -68,7 +68,7 @@ func GetConfig() (cfg Config, err error) {
 		RecentHistoryInterval: *recentHistoryInterval,
 		GroupingResolution:    *groupingResolution,
 		Log:                   *log,
-		Test:                  make(chan struct{}, 1),
+		TestChannel:           make(chan struct{}, 1),
 	}
 	return
 }

@@ -33,8 +33,8 @@ func StateManager(cfg Config) chan<- ProcessedLine {
 				hs.HitMap[l.Section] += 1
 				hitsGroup = GroupByResolution(hitsGroup, l.Time,
 					cfg.GroupingResolution)
-			case <-cfg.Test:
-				ChangeState(&hs)
+			case <-cfg.TestChannel:
+				ChangeState(&HitState{})
 			}
 		}
 	}()
