@@ -26,7 +26,9 @@ func StateManager(cfg Config) chan<- ProcessedLine {
 			case <-ticker.C:
 				hitsGroup = RemoveOldTimeGroups(hitsGroup, cfg.RecentHistoryInterval)
 				hs = hs.Update(SumTimeGroup(hitsGroup))
-				hs.Print()
+				if cfg.Log {
+					hs.Print()
+				}
 			case l := <-input:
 				hs.TotalHits += 1
 				hs.HitMap[l.Section] += 1

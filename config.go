@@ -13,6 +13,7 @@ type Config struct {
 	PrintInterval         time.Duration
 	RecentHistoryInterval time.Duration
 	GroupingResolution    time.Duration
+	Log                   bool
 }
 
 func GetConfig() (cfg Config, err error) {
@@ -29,6 +30,7 @@ func GetConfig() (cfg Config, err error) {
 			"Length of recent history (e.g. 2m)")
 		groupingResolution = flag.Duration("grouping", 1*time.Second,
 			"Resolution of the recent history interval (smaller uses more memory)")
+		log = flag.Bool("log", true, "Set '--log=false' to prevent state printing")
 	)
 	flag.Parse()
 	if *alertPercentage <= 0.0 {
@@ -64,6 +66,7 @@ func GetConfig() (cfg Config, err error) {
 		PrintInterval:         *printInterval,
 		RecentHistoryInterval: *recentHistoryInterval,
 		GroupingResolution:    *groupingResolution,
+		Log:                   *log,
 	}
 	return
 }
