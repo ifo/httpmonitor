@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// StateManager reads processed lines and keeps track of the HitState
 func StateManager(cfg Config) chan<- ProcessedLine {
 	input := make(chan ProcessedLine)
 	hs := HitState{
@@ -81,6 +82,29 @@ func (hs HitState) Update(recentHits float64) HitState {
 	return hs
 }
 
+func (hs HitState) CheckForAlert() (alert Alert) {
+	tot64 := hs.TotalHits / timeSince(hs.StartTime)
+	rec64 := hs.RecentHits / hs.RecentDurationSeconds
+	boundary := tot64 + tot64*hs.AlertPercentage
+	if rec64 > boundary {
+		alert.Start = time.Now()
+		alert.HitsPerSec = alert.MaxHitsPerSec(rec64)
+	}
+	return
+}
+
+func (hs HitState) CheckForAlertRecovery() (alert Alert) {
+	alert = hs.TopAlert
+	tot64 := hs.TotalHits / timeSince(hs.StartTime)
+	rec64 := hs.RecentHits / hs.RecentDurationSeconds
+	boundary := tot64 + tot64*hs.AlertPercentage
+	if rec64 < boundary {
+		alert.End = time.Now()
+		alert.HitsPerSec = alert.MaxHitsPerSec(rec64)
+	}
+	return
+}
+
 func (hs HitState) Print() {
 	// Print Current Alert
 	if !hs.TopAlert.IsEmpty() {
@@ -114,29 +138,6 @@ func (hs HitState) Print() {
 	fmt.Printf("=== avg hits/sec: %.f\n", hs.TotalHits/timeSince(hs.StartTime))
 	fmt.Printf("=== recent hits/sec: %.f\n", hs.RecentHits/hs.RecentDurationSeconds)
 	fmt.Println("")
-}
-
-func (hs HitState) CheckForAlert() (alert Alert) {
-	tot64 := hs.TotalHits / timeSince(hs.StartTime)
-	rec64 := hs.RecentHits / hs.RecentDurationSeconds
-	boundary := tot64 + tot64*hs.AlertPercentage
-	if rec64 > boundary {
-		alert.Start = time.Now()
-		alert.HitsPerSec = alert.MaxHitsPerSec(rec64)
-	}
-	return
-}
-
-func (hs HitState) CheckForAlertRecovery() (alert Alert) {
-	alert = hs.TopAlert
-	tot64 := hs.TotalHits / timeSince(hs.StartTime)
-	rec64 := hs.RecentHits / hs.RecentDurationSeconds
-	boundary := tot64 + tot64*hs.AlertPercentage
-	if rec64 < boundary {
-		alert.End = time.Now()
-		alert.HitsPerSec = alert.MaxHitsPerSec(rec64)
-	}
-	return
 }
 
 func timeSince(t time.Time) float64 {
