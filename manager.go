@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"time"
 )
 
@@ -10,6 +11,7 @@ func StateManager(cfg Config) chan<- ProcessedLine {
 	input := make(chan ProcessedLine)
 	hs := HitState{
 		HitMap:                map[string]int{},
+		HitMap404:             map[string]int{},
 		TotalHits:             0,
 		RecentHits:            0,
 		PastAlerts:            []Alert{},
@@ -32,7 +34,11 @@ func StateManager(cfg Config) chan<- ProcessedLine {
 				Done() // Only used for synchronization in testing
 			case l := <-input:
 				hs.TotalHits += 1
-				hs.HitMap[l.Section] += 1
+				if l.ResponseCode == 404 {
+					hs.HitMap404[l.Path] += 1
+				} else {
+					hs.HitMap[l.Section] += 1
+				}
 				hitsGroup = GroupByResolution(hitsGroup, l.Time,
 					cfg.GroupingResolution)
 			case <-cfg.TestChannel:
@@ -50,6 +56,7 @@ var Done = func() {}
 // HitState contains all af the relevant logging data
 type HitState struct {
 	HitMap                map[string]int
+	HitMap404             map[string]int
 	TotalHits             float64
 	RecentHits            float64
 	PastAlerts            []Alert
@@ -127,13 +134,17 @@ func (hs HitState) Print() {
 	}
 
 	// Print Stats
-	// TODO improve print stats
-	fmt.Println(hs.HitMap)
+	fmt.Println("=== the top 3 website sections ===")
+	for i, m := range maxHits(hs.HitMap, 3) {
+		fmt.Printf("=== %d. %s\n", i, m)
+	}
 	fmt.Println("")
 
 	// Print Interesting Facts
-	// TODO improve interesting facts
 	fmt.Println("=== Did you know? ===")
+	for _, m := range maxHits(hs.HitMap404, 1) {
+		fmt.Printf("=== the most 404s: %s\n", m)
+	}
 	fmt.Printf("=== total hits: %.f\n", hs.TotalHits)
 	fmt.Printf("=== avg hits/sec: %.f\n", hs.TotalHits/timeSince(hs.StartTime))
 	fmt.Printf("=== recent hits/sec: %.f\n", hs.RecentHits/hs.RecentDurationSeconds)
@@ -143,3 +154,30 @@ func (hs HitState) Print() {
 func timeSince(t time.Time) float64 {
 	return float64(time.Since(t).Seconds())
 }
+
+func maxHits(m map[string]int, limit int) []string {
+	hits, maxs := Hits{}, []string{}
+	for k, v := range m {
+		hits = append(hits, Hit{Path: k, Count: v})
+	}
+	sort.Sort(sort.Reverse(hits))
+	for i := range hits {
+		maxs = append(maxs, fmt.Sprintf(`%d at "%s"`, hits[i].Count, hits[i].Path))
+		if i >= limit-1 {
+			break
+		}
+	}
+	return maxs
+}
+
+// Hit is a struct version of the map[string]int, so it can be sorted
+type Hit struct {
+	Path  string
+	Count int
+}
+
+type Hits []Hit
+
+func (h Hits) Len() int           { return len(h) }
+func (h Hits) Less(i, j int) bool { return h[i].Count < h[j].Count }
+func (h Hits) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
