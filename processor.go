@@ -4,8 +4,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/hpcloud/tail"
 )
 
+// ProcessedLine is produced by the LineProcessWorker
+// and consumed by the StateManager
 type ProcessedLine struct {
 	Method       string
 	Path         string
@@ -53,4 +57,15 @@ func LineProcessor(line string) (out ProcessedLine, err error) {
 		Time:         time.Now(),
 	}
 	return
+}
+
+// LineProcessWorker takes a tail line and creates a ProcessedLine struct
+// It then sends that to the StateManager's input channel
+func LineProcessWorker(in <-chan *tail.Line, stats chan<- ProcessedLine) {
+	for l := range in {
+		line, err := LineProcessor(l.Text)
+		if err == nil {
+			stats <- line
+		}
+	}
 }

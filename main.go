@@ -35,12 +35,3 @@ func main() {
 	done := make(chan struct{}, 1)
 	<-done
 }
-
-func LineProcessWorker(in <-chan *tail.Line, stats chan<- ProcessedLine) {
-	for l := range in {
-		line, err := LineProcessor(l.Text)
-		if err == nil {
-			stats <- line
-		}
-	}
-}
