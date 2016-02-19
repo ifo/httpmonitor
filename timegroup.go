@@ -34,7 +34,10 @@ func RemoveOldTimeGroups(ts []TimeGroup, interval time.Duration) []TimeGroup {
 	return ts[i:]
 }
 
-func SumTimeGroup(ts []TimeGroup) (sum uint64) {
+// SumTimeGroup is assignable for testing
+var SumTimeGroup = sumTimeGroup
+
+func sumTimeGroup(ts []TimeGroup) (sum uint64) {
 	for _, t := range ts {
 		sum += t.Count
 	}

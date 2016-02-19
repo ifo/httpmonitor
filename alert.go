@@ -16,7 +16,7 @@ func (a Alert) IsEmpty() bool {
 	return a.Start.IsZero()
 }
 
-// Current Alerts have not yet ended
+// Current Alerts have started but not yet ended
 func (a Alert) IsCurrent() bool {
 	return !a.Start.IsZero() && a.End.IsZero()
 }

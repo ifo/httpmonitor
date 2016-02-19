@@ -28,21 +28,23 @@ func StateManager(cfg Config) chan<- ProcessedLine {
 				if cfg.Log {
 					hs.Print()
 				}
+				Done() // Only used in testing
 			case l := <-input:
 				hs.TotalHits += 1
 				hs.HitMap[l.Section] += 1
 				hitsGroup = GroupByResolution(hitsGroup, l.Time,
 					cfg.GroupingResolution)
 			case <-cfg.TestChannel:
-				ChangeState(&HitState{})
+				ChangeState(&hs)
 			}
 		}
 	}()
 	return input
 }
 
-// ChangeState is a noop used for testing
+// ChangeState and Done are noops used for testing
 var ChangeState = func(hs *HitState) {}
+var Done = func() {}
 
 // HitState contains all af the relevant logging data
 type HitState struct {
