@@ -19,11 +19,10 @@ func StateManager(cfg Config) chan<- ProcessedLine {
 	}
 	hitsGroup := []TimeGroup{}
 
-	ticker := time.NewTicker(cfg.PrintInterval)
 	go func() {
 		for {
 			select {
-			case <-ticker.C:
+			case <-cfg.PrintTimer:
 				hitsGroup = RemoveOldTimeGroups(hitsGroup, cfg.RecentHistoryInterval)
 				hs = hs.Update(SumTimeGroup(hitsGroup))
 				if cfg.Log {
@@ -34,11 +33,16 @@ func StateManager(cfg Config) chan<- ProcessedLine {
 				hs.HitMap[l.Section] += 1
 				hitsGroup = GroupByResolution(hitsGroup, l.Time,
 					cfg.GroupingResolution)
+			case <-cfg.Test:
+				ChangeState(&hs)
 			}
 		}
 	}()
 	return input
 }
+
+// ChangeState is a noop used for testing
+var ChangeState = func(hs *HitState) {}
 
 // HitState contains all af the relevant logging data
 type HitState struct {

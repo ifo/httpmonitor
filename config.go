@@ -10,10 +10,11 @@ type Config struct {
 	AlertPercentage       float64
 	File                  string
 	WorkerCount           int
-	PrintInterval         time.Duration
+	PrintTimer            <-chan time.Time
 	RecentHistoryInterval time.Duration
 	GroupingResolution    time.Duration
 	Log                   bool
+	Test                  chan struct{}
 }
 
 func GetConfig() (cfg Config, err error) {
@@ -63,10 +64,11 @@ func GetConfig() (cfg Config, err error) {
 		AlertPercentage:       *alertPercentage,
 		File:                  *file,
 		WorkerCount:           *workerCount,
-		PrintInterval:         *printInterval,
+		PrintTimer:            time.NewTicker(*printInterval).C,
 		RecentHistoryInterval: *recentHistoryInterval,
 		GroupingResolution:    *groupingResolution,
 		Log:                   *log,
+		Test:                  make(chan struct{}, 1),
 	}
 	return
 }
