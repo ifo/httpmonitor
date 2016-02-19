@@ -28,7 +28,7 @@ func StateManager(cfg Config) chan<- ProcessedLine {
 				if cfg.Log {
 					hs.Print()
 				}
-				Done() // Only used in testing
+				Done() // Only used for synchronization in testing
 			case l := <-input:
 				hs.TotalHits += 1
 				hs.HitMap[l.Section] += 1
@@ -42,7 +42,7 @@ func StateManager(cfg Config) chan<- ProcessedLine {
 	return input
 }
 
-// ChangeState and Done are noops used for testing
+// ChangeState and Done are noops used for synchronization in testing
 var ChangeState = func(hs *HitState) {}
 var Done = func() {}
 
