@@ -12,12 +12,12 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	// tail file
-	t, err := tail.TailFile(cfg.File, tail.Config{
-		//Location: &tail.SeekInfo{Offset: 0, Whence: 2}, // start at end of file
-		ReOpen: true,
-		Follow: true,
-		Logger: tail.DiscardingLogger,
+	// create tail file channel
+	tailChan, err := tail.TailFile(cfg.File, tail.Config{
+		Location: &tail.SeekInfo{Offset: 0, Whence: 2}, // start at end of file
+		ReOpen:   true,
+		Follow:   true,
+		Logger:   tail.DiscardingLogger, // don't print tailing information
 	})
 	if err != nil {
 		log.Fatalln(err)
@@ -28,7 +28,7 @@ func main() {
 
 	// kickoff line process workers
 	for i := 0; i < cfg.WorkerCount; i++ {
-		go LineProcessWorker(t.Lines, input)
+		go LineProcessWorker(tailChan.Lines, input)
 	}
 
 	// wait forever
